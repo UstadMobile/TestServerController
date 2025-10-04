@@ -3,11 +3,13 @@ package com.ustadmobile.testservercontroller
 import com.ustadmobile.test.http.waitForUrl
 import com.ustadmobile.testservercontroller.util.DEFAULT_FROM_PORT
 import com.ustadmobile.testservercontroller.util.DEFAULT_UNTIL_PORT
+import com.ustadmobile.testservercontroller.util.clientProtocolAndHost
 import com.ustadmobile.testservercontroller.util.findFreePort
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.http.toURI
 import io.ktor.server.response.header
@@ -58,14 +60,14 @@ fun Routing.TestServerControllerRoute() {
         val untilPort = split.last()
 
         get("start") {
-            val port = findFreePort(fromPort, untilPort)
+            val serverPort = findFreePort(fromPort, untilPort)
             val runArgs = runCommand.split(Regex("\\s+")).filter {
                 it.isNotEmpty()
             }.toMutableList()
 
             val scope = CoroutineScope(Dispatchers.Default + Job())
 
-            val cmdWorkspaceDir = File(workspaceBaseDir, "run-$port").also {
+            val cmdWorkspaceDir = File(workspaceBaseDir, "run-$serverPort").also {
                 it.mkdirs()
             }
 
@@ -75,7 +77,7 @@ fun Routing.TestServerControllerRoute() {
                 .redirectError(ProcessBuilder.Redirect.PIPE).also { pb ->
                     pb.environment().apply {
                         put("TESTSERVER_WORKSPACE", cmdWorkspaceDir.absolutePath)
-                        put("TESTSERVER_PORT", port.toString())
+                        put("TESTSERVER_PORT", serverPort.toString())
                         putAll(envVariables)
                     }
                 }
@@ -93,22 +95,34 @@ fun Routing.TestServerControllerRoute() {
                 }
             }
 
-            runningCmdMap[port] = RunningCmd(
-                port = port,
+            runningCmdMap[serverPort] = RunningCmd(
+                port = serverPort,
                 process = process
             )
 
             val waitForUrl = call.request.queryParameters["waitForUrl"]
+
+            val controlServerUrl = call.request.headers.clientProtocolAndHost()
+            val serverUrl = URLBuilder(controlServerUrl).apply {
+                port = serverPort
+            }.build()
+
             if(waitForUrl != null) {
                 okHttpClient.waitForUrl(
-                    url = Url("http://localhost:$port/").toURI().resolve(waitForUrl).toString()
+                    url = serverUrl.toURI().resolve(waitForUrl).toString()
                 )
             }
 
             call.response.header("cache-control", "no-cache, no-store")
+
             call.respondText(
                 contentType = ContentType.Application.Json,
-                text = "{ \"port\": $port }"
+                text = """
+                    { 
+                        "port": $serverPort,
+                         "url": "$serverUrl"
+                    }
+                """.trimIndent()
             )
         }
 
