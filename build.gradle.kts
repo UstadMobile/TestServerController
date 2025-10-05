@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.ustadmobile.testservercontroller"
-version = "0.0.1"
+version = "0.0.2"
 
 application {
     mainClass = "io.ktor.server.netty.EngineMain"
@@ -19,9 +19,6 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
-    implementation(project.dependencies.platform(libs.koin.bom))
-    implementation(libs.koin.core)
-    implementation(libs.koin.ktor)
     implementation(libs.okhttp)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
