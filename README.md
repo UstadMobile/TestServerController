@@ -1,8 +1,8 @@
 # Test Server Controller
 
 This is a simple server which can be used to start/stop other servers for end-to-end tests. A test (running Maestro or
-other test framework) can make http requests to testserver-controller/start testserver-controller/stop to control 
-servers. 
+other test framework) can make http requests to testserver-controller/start and testserver-controller/stop to control 
+servers. Multiple server processes can run concurrently.
 
 The normal flow is:
 * A test makes an http request to ```/start```. Test Server Controller finds a free port and runs the command specified
