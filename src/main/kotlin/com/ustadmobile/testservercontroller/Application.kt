@@ -34,6 +34,7 @@ fun Application.module() {
         config = environment.config,
         okHttpClient = okHttpClient,
         httpClient = httpClient,
+        logger = environment.log,
     )
 
     //Use ApplicationStopped event to stop any pending running servers.

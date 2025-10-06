@@ -19,6 +19,7 @@ import io.ktor.http.Url
 import io.ktor.http.toURI
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.util.collections.ConcurrentMap
+import io.ktor.util.logging.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +31,7 @@ class TestServersRunner(
     config: ApplicationConfig,
     private val okHttpClient: OkHttpClient,
     private val httpClient: HttpClient,
+    private val logger: Logger,
 ) {
 
     data class StartServerResponse(
@@ -78,6 +80,8 @@ class TestServersRunner(
         val cmdWorkspaceDir = File(workspaceBaseDir, "run-$serverPort").also {
             it.mkdirs()
         }
+
+        logger.info("TestServerRunner: running command $runCommand (workingDir=$cmdWorkspaceDir)")
 
         val process = ProcessBuilder(runArgs)
             .directory(cmdWorkspaceDir)
