@@ -16,6 +16,8 @@ const val PROP_ENV = "testservercontroller.env"
 
 const val PROP_PORT_RANGE = "testservercontroller.portRange"
 
+const val PROP_URLSUBSTITUTION = "testservercontroller.urlsubstitution"
+
 fun Routing.TestServerControllerRoute(
     testServersRunner: TestServersRunner
 ) {

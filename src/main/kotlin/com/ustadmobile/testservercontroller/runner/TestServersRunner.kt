@@ -6,6 +6,7 @@ import com.ustadmobile.testservercontroller.PROP_ENV
 import com.ustadmobile.testservercontroller.PROP_PORT_RANGE
 import com.ustadmobile.testservercontroller.PROP_RUN_COMMAND
 import com.ustadmobile.testservercontroller.PROP_SHUTDOWN_URL
+import com.ustadmobile.testservercontroller.PROP_URLSUBSTITUTION
 import com.ustadmobile.testservercontroller.RunningCmd
 import com.ustadmobile.testservercontroller.util.DEFAULT_FROM_PORT
 import com.ustadmobile.testservercontroller.util.DEFAULT_UNTIL_PORT
@@ -61,6 +62,8 @@ class TestServersRunner(
     val fromPort = split.first()
     val untilPort = split.last()
 
+    val urlSubstitution = config.propertyOrNull(PROP_URLSUBSTITUTION)?.getString()
+
     fun startServer(
         controlServerUrl: String,
         waitForUrl: String?,
@@ -105,10 +108,14 @@ class TestServersRunner(
             process = process
         )
 
+        val serverUrl = if(urlSubstitution != null && urlSubstitution.isNotEmpty()) {
+            Url(urlSubstitution.replace("_PORT_", serverPort.toString()))
+        }else {
+            URLBuilder(controlServerUrl).apply {
+                port = serverPort
+            }.build()
+        }
 
-        val serverUrl = URLBuilder(controlServerUrl).apply {
-            port = serverPort
-        }.build()
 
         if(waitForUrl != null) {
             okHttpClient.waitForUrl(
