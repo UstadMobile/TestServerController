@@ -24,22 +24,36 @@ fun Routing.TestServerControllerRoute(
     route("testcontroller") {
 
         get("start") {
-            val startServerResponse = testServersRunner.startServer(
-                controlServerUrl = call.request.headers.clientProtocolAndHost(),
-                waitForUrl = call.request.queryParameters["waitForUrl"],
-            )
+            try {
+                val startServerResponse = testServersRunner.startServer(
+                    TestServersRunner.StartServerRequest(
+                        controlServerUrl = call.request.headers.clientProtocolAndHost(),
+                        waitForUrl = call.request.queryParameters["waitForUrl"],
+                        name = call.request.queryParameters["name"],
+                    )
 
-            call.response.header("cache-control", "no-cache, no-store")
+                )
 
-            call.respondText(
-                contentType = ContentType.Application.Json,
-                text = """
+                call.response.header("cache-control", "no-cache, no-store")
+
+                call.respondText(
+                    contentType = ContentType.Application.Json,
+                    text = """
                     { 
                         "port": ${startServerResponse.port},
                          "url": "${startServerResponse.url}"
                     }
                 """.trimIndent()
-            )
+                )
+            }catch(t: Throwable) {
+                t.printStackTrace()
+                call.respondText(
+                    contentType = ContentType.Text.Plain,
+                    status = HttpStatusCode.InternalServerError,
+                    text = "Exception: $t"
+                )
+            }
+
         }
 
         get("stop") {

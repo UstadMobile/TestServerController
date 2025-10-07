@@ -24,8 +24,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
+import kotlinx.datetime.toLocalDateTime
 import okhttp3.OkHttpClient
 import java.io.File
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 class TestServersRunner(
     config: ApplicationConfig,
@@ -33,6 +38,11 @@ class TestServersRunner(
     private val httpClient: HttpClient,
     private val logger: Logger,
 ) {
+    data class StartServerRequest(
+        val controlServerUrl: String,
+        val waitForUrl: String?,
+        val name: String?,
+    )
 
     data class StartServerResponse(
         val port: Int,
@@ -43,7 +53,7 @@ class TestServersRunner(
 
     val runCommand = config.property(PROP_RUN_COMMAND).getString()
 
-    val workspaceBaseDir = File(config.propertyOrNull(PROP_BASE_DIR)?.getString() ?: ".")
+    val workspaceBaseDir = File(config.propertyOrNull(PROP_BASE_DIR)?.getString() ?: DEFAULT_BASEDIR)
 
     val shutdownUrl = config.property(PROP_SHUTDOWN_URL).getString()
 
@@ -66,9 +76,9 @@ class TestServersRunner(
 
     val urlSubstitution = config.propertyOrNull(PROP_URLSUBSTITUTION)?.getString()
 
+    @OptIn(ExperimentalTime::class)
     fun startServer(
-        controlServerUrl: String,
-        waitForUrl: String?,
+        request: StartServerRequest,
     ) : StartServerResponse {
         val serverPort = findFreePort(fromPort, untilPort)
         val runArgs = runCommand.split(Regex("\\s+")).filter {
@@ -77,11 +87,17 @@ class TestServersRunner(
 
         val scope = CoroutineScope(Dispatchers.Default + Job())
 
-        val cmdWorkspaceDir = File(workspaceBaseDir, "run-$serverPort").also {
+        val dateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val dirName = request.name?.filter { it.isLetterOrDigit() }
+            ?: ("run-${dateTime.date.year}_${dateTime.date.month.number.toString().padStart(2, '0')}_" +
+                    "${dateTime.date.day.toString().padStart(2, '0')}_" +
+                    "${dateTime.time.hour}_${dateTime.time.minute}_${dateTime.second}")
+
+        val cmdWorkspaceDir = File(workspaceBaseDir, dirName).also {
             it.mkdirs()
         }
 
-        logger.info("TestServerRunner: running command $runCommand (workingDir=$cmdWorkspaceDir)")
+        logger.info("TestServerRunner: port=$serverPort starting command $runCommand (workingDir=${cmdWorkspaceDir.absolutePath})")
 
         val process = ProcessBuilder(runArgs)
             .directory(cmdWorkspaceDir)
@@ -95,6 +111,7 @@ class TestServersRunner(
             }
             .start()
 
+        logger.info("TestServerRunner: port=$serverPort process started PID=${process.pid()}")
         scope.launch {
             process.inputStream.bufferedReader().use { inStream ->
                 inStream.forEachLine { println(it) }
@@ -107,23 +124,23 @@ class TestServersRunner(
             }
         }
 
-        runningCmdMap[serverPort] = RunningCmd(
-            port = serverPort,
-            process = process
-        )
-
         val serverUrl = if(urlSubstitution != null && urlSubstitution.isNotEmpty()) {
             Url(urlSubstitution.replace("_PORT_", serverPort.toString()))
         }else {
-            URLBuilder(controlServerUrl).apply {
+            URLBuilder(request.controlServerUrl).apply {
                 port = serverPort
             }.build()
         }
 
+        runningCmdMap[serverPort] = RunningCmd(
+            port = serverPort,
+            process = process,
+            serverUrl = serverUrl,
+        )
 
-        if(waitForUrl != null) {
+        if(request.waitForUrl != null) {
             okHttpClient.waitForUrl(
-                url = serverUrl.toURI().resolve(waitForUrl).toString()
+                url = serverUrl.toURI().resolve(request.waitForUrl).toString()
             )
         }
 
@@ -136,12 +153,13 @@ class TestServersRunner(
     suspend fun stopServer(
         port: Int
     ) {
-        runningCmdMap[port] ?: throw IllegalArgumentException("Running server not found")
+        logger.info("TestServerRunner: request to stop server on port=$port")
+        val runningCmd = runningCmdMap[port] ?: throw IllegalArgumentException("Running server not found")
 
-        val shutdownUrl = Url("http://localhost:$port$shutdownUrl")
-        println("Shutdown $shutdownUrl")
-        val shutdownText = httpClient.get(shutdownUrl).bodyAsText()
-        println(shutdownText)
+        val shutdownUrl = runningCmd.serverUrl.toURI().resolve(shutdownUrl)
+        logger.info("TestServerRunner: stopping server on $port by ")
+        val shutdownText = httpClient.get(shutdownUrl.toString()).bodyAsText()
+        logger.info("TestServerRunner: stopping server on port $port : server response: $shutdownText")
         runningCmdMap.remove(port)
     }
 
@@ -155,6 +173,12 @@ class TestServersRunner(
                 //t.printStackTrace()
             }
         }
+    }
+
+    companion object {
+
+        const val DEFAULT_BASEDIR = "./build/testservercontroller/base"
+
     }
 
 }

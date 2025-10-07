@@ -6,7 +6,7 @@ ktor:
         port: 8080
 
 testservercontroller:
-    basedir: "./test-server-base"
-    cmd: "/home/mike/AndroidStudioProjects/Respect-review/respect-test-end-to-end/android-maestro/run-server.sh"
+    basedir: "./build/testcontroller/test-server-base"
+    cmd: "/home/mike/AndroidStudioProjects/Respect-review/ci-run-test-server.sh"
     shutdown:
       url: "/shutdown"
