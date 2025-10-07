@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.ustadmobile.testservercontroller"
-version = "0.0.5"
+version = "0.0.6"
 
 application {
     mainClass = "io.ktor.server.netty.EngineMain"

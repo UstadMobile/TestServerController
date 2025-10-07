@@ -12,8 +12,6 @@ import com.ustadmobile.testservercontroller.util.DEFAULT_FROM_PORT
 import com.ustadmobile.testservercontroller.util.DEFAULT_UNTIL_PORT
 import com.ustadmobile.testservercontroller.util.findFreePort
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.http.toURI
@@ -160,29 +158,21 @@ class TestServersRunner(
         )
     }
 
-    suspend fun stopServer(
+    fun stopServer(
         port: Int
     ) {
         logger.info("TestServerRunner: request to stop server on port=$port")
-        val runningCmd = runningCmdMap[port] ?: throw IllegalArgumentException("Running server not found")
-        shutdownUrl?.also { url ->
-            val shutdownUrl = runningCmd.serverUrl.toURI().resolve(url)
-            logger.info("TestServerRunner: stopping server on $port by ")
-            val shutdownText = httpClient.get(shutdownUrl.toString()).bodyAsText()
-            logger.info("TestServerRunner: stopping server on port $port : server response: $shutdownText")
-        }
 
         runningCmdMap.remove(port)
     }
 
-    suspend fun stopAll() {
+    fun stopAll() {
         val runningServerPorts = runningCmdMap.keys
         runningServerPorts.forEach {
             try {
                 stopServer(it)
             }catch(t: Throwable) {
                 println("WARNING: stopAll couldn't stop server on port $it: ${t.message}")
-                //t.printStackTrace()
             }
         }
     }
