@@ -55,7 +55,7 @@ class TestServersRunner(
 
     val workspaceBaseDir = File(config.propertyOrNull(PROP_BASE_DIR)?.getString() ?: DEFAULT_BASEDIR)
 
-    val shutdownUrl = config.property(PROP_SHUTDOWN_URL).getString()
+    val shutdownUrl = config.propertyOrNull(PROP_SHUTDOWN_URL)?.getString()
 
     val portRangeStr = config.propertyOrNull(PROP_PORT_RANGE)?.getString()
         ?: "$DEFAULT_FROM_PORT-$DEFAULT_UNTIL_PORT"
@@ -111,7 +111,13 @@ class TestServersRunner(
             }
             .start()
 
-        logger.info("TestServerRunner: port=$serverPort process started PID=${process.pid()}")
+        val pidFile = File(cmdWorkspaceDir, "process.pid").also { file ->
+            file.writer().use {
+                it.write(process.pid().toString())
+            }
+        }
+
+        logger.info("TestServerRunner: port=$serverPort process started PID=${process.pid()} (saved to ${pidFile.path}}")
         scope.launch {
             File(cmdWorkspaceDir, "stdout.log").outputStream().bufferedWriter().use { writer ->
                 process.inputStream.bufferedReader().use { inStream ->
@@ -159,11 +165,13 @@ class TestServersRunner(
     ) {
         logger.info("TestServerRunner: request to stop server on port=$port")
         val runningCmd = runningCmdMap[port] ?: throw IllegalArgumentException("Running server not found")
+        shutdownUrl?.also { url ->
+            val shutdownUrl = runningCmd.serverUrl.toURI().resolve(url)
+            logger.info("TestServerRunner: stopping server on $port by ")
+            val shutdownText = httpClient.get(shutdownUrl.toString()).bodyAsText()
+            logger.info("TestServerRunner: stopping server on port $port : server response: $shutdownText")
+        }
 
-        val shutdownUrl = runningCmd.serverUrl.toURI().resolve(shutdownUrl)
-        logger.info("TestServerRunner: stopping server on $port by ")
-        val shutdownText = httpClient.get(shutdownUrl.toString()).bodyAsText()
-        logger.info("TestServerRunner: stopping server on port $port : server response: $shutdownText")
         runningCmdMap.remove(port)
     }
 
