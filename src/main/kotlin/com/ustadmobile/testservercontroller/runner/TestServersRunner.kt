@@ -113,14 +113,18 @@ class TestServersRunner(
 
         logger.info("TestServerRunner: port=$serverPort process started PID=${process.pid()}")
         scope.launch {
-            process.inputStream.bufferedReader().use { inStream ->
-                inStream.forEachLine { println(it) }
+            File(cmdWorkspaceDir, "stdout.log").outputStream().bufferedWriter().use { writer ->
+                process.inputStream.bufferedReader().use { inStream ->
+                    inStream.forEachLine { writer.write(it + "\n") }
+                }
             }
         }
 
         scope.launch {
-            process.errorStream.bufferedReader().use { inStream ->
-                inStream.forEachLine { println(it) }
+            File(cmdWorkspaceDir, "stderr.log").outputStream().bufferedWriter().use { writer ->
+                process.errorStream.bufferedReader().use { inStream ->
+                    inStream.forEachLine { writer.write(it) }
+                }
             }
         }
 
