@@ -18,18 +18,20 @@ fun findFreePort(
     until: Int = DEFAULT_UNTIL_PORT,
     numAttempts: Int = 20
 ): Int {
+    val portsTried = mutableListOf<Int>()
     for(i in 1..numAttempts) {
         val portToTry = if(from == until) from else Random.nextInt(from, until)
 
-        return try {
-            ServerSocket(portToTry).use { socket ->
+        try {
+            return ServerSocket(portToTry).use { socket ->
                 socket.localPort
             }
         } catch (e: IOException) {
-            throw RuntimeException(e)
+            portsTried.add(portToTry)
         }
     }
 
-    throw IllegalStateException("Could not find a free port in range $from to $until after $numAttempts attempts")
+    throw IllegalStateException("Could not find a free port in range $from to $until after $numAttempts " +
+            "attempts (tried ${portsTried.joinToString()}")
 }
 
