@@ -86,7 +86,7 @@ class TestServersRunner(
         val scope = CoroutineScope(Dispatchers.Default + Job())
 
         val dateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val dirName = request.name?.filter { it.isLetterOrDigit() }
+        val dirName = request.name?.filter { it.isLetterOrDigit() || it == '_' }
             ?: ("run-${dateTime.date.year}_${dateTime.date.month.number.toString().padStart(2, '0')}_" +
                     "${dateTime.date.day.toString().padStart(2, '0')}_" +
                     "${dateTime.time.hour}_${dateTime.time.minute}_${dateTime.second}")
